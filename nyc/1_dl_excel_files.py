@@ -5,6 +5,7 @@ import os
 import sys
 import subprocess
 
+
 def main():
     if len(sys.argv) != 3:
         print("Usage:")
@@ -24,7 +25,7 @@ def main():
     for in_row in csv_reader:
         output_path = os.path.join(output_dir, in_row.get("filename"))
         url = in_row.get("url")
-        
+
         if os.path.isfile(output_path):
             continue
 
@@ -32,6 +33,6 @@ def main():
 
     in_f.close()
 
+
 if __name__ == "__main__":
     main()
-

@@ -45,13 +45,14 @@ FIELDNAMES = [
     "seller_1_state",
     "seller_2_state",
     "buyer_1_state",
-    "buyer_2_state"
+    "buyer_2_state",
 ]
+
 
 def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
     wb = openpyxl.load_workbook(xlsx_filepath)
     ws = wb.active
-    
+
     xls_fieldnames = None
 
     for row in ws:
@@ -70,12 +71,12 @@ def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
         if xls_fieldnames is None:
             continue
 
-        row = row[:len(xls_fieldnames)]
+        row = row[: len(xls_fieldnames)]
 
         xls_row = dict(zip(xls_fieldnames, row))
 
         pprint(xls_row)
-        
+
         # https://en.wikipedia.org/wiki/List_of_counties_in_New_York#Five_boroughs_of_New_York_City
         county = "NEW YORK"
         if "bronx" in xlsx_filepath:
@@ -86,7 +87,7 @@ def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
             county = "RICHMOND"
         elif "queens" in xlsx_filepath:
             county = "QUEENS"
-    
+
         out_row = {
             "state": "NY",
             "property_zip5": xls_row.get("ZIP CODE"),
@@ -96,7 +97,9 @@ def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
             "property_id": None,
             "sale_datetime": xls_row.get("SALE DATE").isoformat(),
             "property_type": xls_row.get("BUILDING CLASS CATEGORY"),
-            "sale_price": str(xls_row.get("SALE PRICE", "")).replace("$", "").replace("US", ""),
+            "sale_price": str(xls_row.get("SALE PRICE", ""))
+            .replace("$", "")
+            .replace("US", ""),
             "seller_1_name": None,
             "buyer_1_name": None,
             "building_num_units": xls_row.get("TOTAL UNITS"),
@@ -113,7 +116,7 @@ def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
             "building_num_stories": None,
             "building_num_beds": None,
             "building_num_baths": None,
-            "building_area_sqft": None, # XXX
+            "building_area_sqft": None,  # XXX
             "building_assessed_value": None,
             "building_assessed_date": None,
             "land_area_acres": None,
@@ -125,11 +128,12 @@ def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
             "seller_1_state": None,
             "seller_2_state": None,
             "buyer_1_state": None,
-            "buyer_2_state": None
+            "buyer_2_state": None,
         }
 
         pprint(out_row)
         csv_writer.writerow(out_row)
+
 
 def main():
     if len(sys.argv) != 4:
@@ -141,13 +145,13 @@ def main():
     output_csv_file = sys.argv[3]
 
     out_f = open(output_csv_file, "w", encoding="utf-8")
-    
+
     csv_writer = csv.DictWriter(out_f, fieldnames=FIELDNAMES, lineterminator="\n")
     csv_writer.writeheader()
 
     in_f = open(url_list, "r")
     csv_reader = csv.DictReader(in_f)
-    
+
     for in_row in csv_reader:
         xlsx_url = in_row.get("url")
         xlsx_filepath = in_row.get("filename")
@@ -159,6 +163,7 @@ def main():
 
     in_f.close()
     out_f.close()
+
 
 if __name__ == "__main__":
     main()
