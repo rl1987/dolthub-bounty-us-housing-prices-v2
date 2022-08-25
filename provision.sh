@@ -9,7 +9,7 @@ curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh > /t
 dolt config --global --add user.email rimantas@keyspace.lt
 dolt config --global --add user.name "rl1987"
 
-pip3 install --upgrade requests lxml js2xml doltpy scrapy openpyxl pandas
+pip3 install --upgrade requests lxml js2xml doltpy scrapy openpyxl pandas xlrd
 
 curl -sSL https://repos.insights.digitalocean.com/install.sh -o /tmp/install.sh
 bash /tmp/install.sh
