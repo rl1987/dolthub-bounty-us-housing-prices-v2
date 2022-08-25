@@ -3,6 +3,7 @@
 import sys
 import os
 import csv
+from datetime import datetime
 from pprint import pprint
 
 import openpyxl
@@ -50,7 +51,21 @@ FIELDNAMES = [
 
 
 def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
-    wb = openpyxl.load_workbook(xlsx_filepath)
+    try:
+        wb = openpyxl.load_workbook(xlsx_filepath)
+    except Exception as e:
+        # The following assumes legacy XLS files we're converted to modern format. See:
+        # https://stackoverflow.com/questions/21531212/unix-command-to-convert-xls-file-into-xlsx-file
+        if xlsx_filepath.endswith(".xls"):
+            xlsx_filepath += "x"
+            try:
+                wb = openpyxl.load_workbook(xlsx_filepath)
+            except:
+                return
+        else:
+            print(e)
+            return
+
     ws = wb.active
 
     xls_fieldnames = None
@@ -60,7 +75,7 @@ def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
         if len(row) == 0:
             continue
 
-        if row[0] == "BOROUGH":
+        if type(row[0]) == str and row[0].startswith("BOROUGH"):
             xls_fieldnames = row
 
             if "NUMBER OF SALES" in xls_fieldnames:
@@ -88,6 +103,11 @@ def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
         elif "queens" in xlsx_filepath:
             county = "QUEENS"
 
+        try:
+            sale_date = xls_row.get("SALE DATE").isoformat()
+        except:
+            sale_date = None
+
         out_row = {
             "state": "NY",
             "property_zip5": xls_row.get("ZIP CODE"),
@@ -95,7 +115,7 @@ def wrangle_data(xlsx_filepath, xlsx_url, csv_writer):
             "property_city": "NEW YORK",
             "property_county": county,
             "property_id": None,
-            "sale_datetime": xls_row.get("SALE DATE").isoformat(),
+            "sale_datetime": sale_date,
             "property_type": xls_row.get("BUILDING CLASS CATEGORY"),
             "sale_price": str(xls_row.get("SALE PRICE", ""))
             .replace("$", "")
