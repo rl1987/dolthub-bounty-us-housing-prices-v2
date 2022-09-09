@@ -5,6 +5,7 @@ from scrapy.http import FormRequest
 import calendar
 from datetime import datetime, date
 import logging
+from urllib.parse import urljoin
 
 class ClaytonSpider(scrapy.Spider):
     name = 'clayton'
@@ -21,19 +22,24 @@ class ClaytonSpider(scrapy.Spider):
     def stringify_date(self, d):
         return "{:02d}/{:02d}/{:04d}".format(d.month, d.day, d.year)
 
-    def make_search_form_request(self, response, start_date, end_date):
-        start_date_str = self.stringify_date(start_date)
-        end_date_str = self.stringify_date(end_date)
-
+    def extract_form(self, response, form_xpath):
         form_data = dict()
 
-        for hidden_input in response.xpath('//form[@name="frmMain"]/input'):
+        for hidden_input in response.xpath(form_xpath).xpath('./input'):
             name = hidden_input.attrib.get('name')
             value = hidden_input.attrib.get('value')
             if value is None:
                 value = ''
 
             form_data[name] = value
+
+        return form_data
+
+    def make_search_form_request(self, response, start_date, end_date):
+        start_date_str = self.stringify_date(start_date)
+        end_date_str = self.stringify_date(end_date)
+
+        form_data = self.extract_form(response, '//form[@name="frmMain"]')
 
         form_data['hdCriteria'] = 'salesdate|{}~{}'.format(start_date_str, end_date_str)
         form_data['ctl01$cal1'] = start_date.isoformat()
@@ -62,5 +68,31 @@ class ClaytonSpider(scrapy.Spider):
         if len(first_row) != 1:
             return
 
-        yield None
+        logging.debug(first_row.xpath(".//text()").getall())
+
+        onclick = first_row.attrib.get('onclick')
+        rel_url = onclick.replace("javascript:selectSearchRow('", "").replace("')", "")
+
+        form_data = self.extract_form(response, '//form[@name="frmMain"]')
+        form_data['hdLink'] = rel_url
+        logging.debug(form_data)
+
+        action = response.xpath('//form[@name="frmMain"]/@action').get()
+        form_url = urljoin(response.url, action)
+
+        yield FormRequest(form_url, formdata=form_data, callback=self.parse_property_main_page)
+
+    def parse_property_main_page(self, response):
+        parid = response.xpath('//input[@id="hdXPin"]/@value').get()
+        property_street_address = response.xpath('//tr[@id="datalet_header_row"]//td[@class="DataletHeaderBottom"]/text()').get()
+
+        partial_item = {
+            'state': "GA",
+            'property_id': parid,
+            'property_street_address': property_street_address,
+            'property_county': "CLAYTON",
+
+        }
+        
+        yield partial_item
 
