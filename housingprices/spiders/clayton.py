@@ -12,10 +12,19 @@ from housingprices.items import SalesItem
 class ClaytonSpider(scrapy.Spider):
     name = 'clayton'
     allowed_domains = ['publicaccess.claytoncountyga.gov']
-    start_urls = ['https://publicaccess.claytoncountyga.gov/Search/Disclaimer.aspx?FromUrl=../search/advancedsearch.aspx?mode=advanced']
+    start_urls = ['https://publicaccess.claytoncountyga.gov/Search/Disclaimer.aspx?FromUrl=../search/advancedsearch.aspx?mode=advanced',
+            'https://publicaccess.claytoncountyga.gov/search/advancedsearch.aspx?mode=advanced']
     start_year = 1939
+    state = "GA"
+    county = "CLAYTON"
+    shards = []
 
     def start_requests(self):
+        for year in range(self.start_year, datetime.today().year + 1):
+            for month in range(1, 13):
+                shard = (year, month)
+                self.shards.append(shard)
+
         yield scrapy.Request(self.start_urls[0], callback=self.parse_disclaimer_page)
 
     def parse_disclaimer_page(self, response):
@@ -62,18 +71,23 @@ class ClaytonSpider(scrapy.Spider):
         return FormRequest(response.url, formdata=form_data, callback=self.parse_search_result_list)
 
     def parse_form_page(self, response):
-        for year in range(self.start_year, datetime.today().year + 1):
-            for month in range(1, 13):
-                days_in_month = calendar.monthrange(year, month)[1]
-                
-                start_date = date(year=year, month=month, day=1)
-                end_date = date(year=year, month=month, day=days_in_month)
+        if len(self.shards) == 0:
+            yield None
 
-                yield self.make_search_form_request(response, start_date, end_date)
+        year, month = self.shards.pop()
+        logging.info("Year: {}, month: {}".format(year, month))
+
+        days_in_month = calendar.monthrange(year, month)[1]
+        
+        start_date = date(year=year, month=month, day=1)
+        end_date = date(year=year, month=month, day=days_in_month)
+
+        yield self.make_search_form_request(response, start_date, end_date)
 
     def parse_search_result_list(self, response):
         first_row = response.xpath('//tr[@class="SearchResults"][1]')
         if len(first_row) != 1:
+            yield scrapy.Request(self.start_urls[-1], callback=self.parse_form_page, dont_filter=True)
             return
 
         logging.debug(first_row.xpath(".//text()").getall())
@@ -95,16 +109,24 @@ class ClaytonSpider(scrapy.Spider):
 
     def parse_property_main_page(self, response):
         parid = response.xpath('//input[@id="hdXPin"]/@value').get()
-        property_street_address = response.xpath('//tr[@id="datalet_header_row"]//td[@class="DataletHeaderBottom"]/text()').get()
+        property_street_address = response.xpath('//td[@class="DataletHeaderBottom"][last()]/text()').get()
 
-        partial_item = {
-            'state': "GA",
-            'property_id': parid,
-            'property_street_address': property_street_address,
-            'property_county': "CLAYTON",
-        }
-        
-        yield partial_item
+        item = SalesItem()
+        item['state'] = self.state
+        item['property_id'] = parid
+        item['property_street_address'] = property_street_address
+        item['property_county'] = self.county
+
+        residential_link = response.xpath('//a[./span[text()="Residential"]]/@href').get()
+        yield response.follow(residential_link, meta={'item': item}, callback=self.parse_property_residential_page, dont_filter=True)
+
+    def parse_property_residential_page(self, response):
+        item = response.meta.get('item')
+            
+        parid = response.xpath('//input[@id="hdXPin"]/@value').get()
+        assert parid == item['property_id']
+
+        yield item
 
         to_from_input_text = response.xpath('//input[@name="DTLNavigator$txtFromTo"]/@value').get()
         idx, total = to_from_input_text.split(" of ")
@@ -112,6 +134,7 @@ class ClaytonSpider(scrapy.Spider):
         total = int(total)
         
         if idx == total:
+            yield scrapy.Request(self.start_urls[-1], callback=self.parse_form_page, dont_filter=True)
             return
 
         form_data = self.extract_form(response, '//form[@name="frmMain"]')
