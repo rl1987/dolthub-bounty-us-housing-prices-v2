@@ -130,6 +130,31 @@ class ClaytonSpider(scrapy.Spider):
         item['building_num_beds'] = response.xpath('//tr[./td[text()="Bedrooms"]]/td[@class="DataletData"]/text()').get()
         item['building_num_baths'] = response.xpath('//tr[./td[text()="Full Baths"]]/td[@class="DataletData"]/text()').get()
 
+        value_history_link = response.xpath('//a[./span[text()="Value History"]]/@href').get()
+        yield response.follow(value_history_link, meta={'item': item}, callback=self.parse_property_value_history_page, dont_filter=True)
+
+    def parse_property_value_history_page(self, response):
+        item = response.meta.get('item')
+            
+        appr_values_table = response.xpath('//table[@id="Appraised Values"]')
+        if appr_values_table is not None:
+            first_row = appr_values_table.xpath('./tr[2]')
+            if first_row is not None:
+                first_row_values = first_row.xpath('./td/text()').getall()
+                item['total_appraised_value'] = first_row_values[-1]
+                item['land_appraised_value'] = first_row_values[1]
+                item['building_appraised_value'] = first_row_values[2]
+
+        as_values_table = response.xpath('//div[@name="VALUE_HIST_ASMT"]/table')
+        if as_values_table is not None:
+            first_row = as_values_table.xpath('./tr[2]')
+            if first_row is not None:
+                first_row_values = first_row.xpath('./td/text()').getall()
+                item['building_assessed_value'] = first_row_values[2]
+                item['building_assessed_date'] = first_row_values[0]
+                item['land_assessed_value'] = first_row_values[1]
+                item['total_assessed_value'] = first_row_values[-1]
+        
         yield item
 
         to_from_input_text = response.xpath('//input[@name="DTLNavigator$txtFromTo"]/@value').get()
@@ -152,3 +177,4 @@ class ClaytonSpider(scrapy.Spider):
         form_url = urljoin(response.url, action)
 
         yield FormRequest(form_url, formdata=form_data, callback=self.parse_property_main_page)
+
