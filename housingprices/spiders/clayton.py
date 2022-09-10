@@ -25,8 +25,10 @@ class ClaytonSpider(scrapy.Spider):
     def extract_form(self, response, form_xpath):
         form_data = dict()
 
-        for hidden_input in response.xpath(form_xpath).xpath('./input'):
+        for hidden_input in response.xpath(form_xpath).xpath('.//input'):
             name = hidden_input.attrib.get('name')
+            if name is None:
+                continue
             value = hidden_input.attrib.get('value')
             if value is None:
                 value = ''
@@ -103,3 +105,22 @@ class ClaytonSpider(scrapy.Spider):
         
         yield partial_item
 
+        to_from_input_text = response.xpath('//input[@name="DTLNavigator$txtFromTo"]/@value').get()
+        idx, total = to_from_input_text.split(" of ")
+        idx = int(idx)
+        total = int(total)
+        
+        if idx == total:
+            return
+
+        form_data = self.extract_form(response, '//form[@name="frmMain"]')
+        del form_data['DTLNavigator$imageNext']
+        del form_data['DTLNavigator$imageLast']
+        form_data['DTLNavigator$imageNext.x'] = '0' # XXX
+        form_data['DTLNavigator$imageNext.y'] = str(idx + 1)
+        logging.info(form_data)
+
+        action = response.xpath('//form[@name="frmMain"]/@action').get()
+        form_url = urljoin(response.url, action)
+
+        yield FormRequest(form_url, formdata=form_data, callback=self.parse_property_main_page)
