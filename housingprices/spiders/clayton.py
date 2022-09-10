@@ -126,6 +126,10 @@ class ClaytonSpider(scrapy.Spider):
         parid = response.xpath('//input[@id="hdXPin"]/@value').get()
         assert parid == item['property_id']
 
+        item['building_year_built'] = response.xpath('//tr[./td[text()="Year Built"]]/td[@class="DataletData"]/text()').get()
+        item['building_num_beds'] = response.xpath('//tr[./td[text()="Bedrooms"]]/td[@class="DataletData"]/text()').get()
+        item['building_num_baths'] = response.xpath('//tr[./td[text()="Full Baths"]]/td[@class="DataletData"]/text()').get()
+
         yield item
 
         to_from_input_text = response.xpath('//input[@name="DTLNavigator$txtFromTo"]/@value').get()
