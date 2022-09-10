@@ -48,6 +48,10 @@ class ClaytonSpider(scrapy.Spider):
         form_data['ctl01$cal2'] = end_date.isoformat()
         form_data['ctl01$cal2$dateInput'] = end_date_str
         form_data['txtCrit2'] = end_date_str
+        form_data['PageNum'] = '1'
+        form_data['PageSize'] = '1'
+        form_data['hdCriteriaTypes'] = 'N|N|C|C|C|N|C|C|N|D|N|N|C|C|C|N|N'
+        form_data['sCriteria'] = '0'
 
         logging.debug(form_data)
 
