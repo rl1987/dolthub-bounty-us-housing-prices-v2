@@ -7,6 +7,8 @@ from datetime import datetime, date
 import logging
 from urllib.parse import urljoin
 
+from housingprices.items import SalesItem
+
 class ClaytonSpider(scrapy.Spider):
     name = 'clayton'
     allowed_domains = ['publicaccess.claytoncountyga.gov']
@@ -100,7 +102,6 @@ class ClaytonSpider(scrapy.Spider):
             'property_id': parid,
             'property_street_address': property_street_address,
             'property_county': "CLAYTON",
-
         }
         
         yield partial_item
