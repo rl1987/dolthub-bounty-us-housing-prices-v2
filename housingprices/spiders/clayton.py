@@ -79,6 +79,9 @@ class ClaytonSpider(scrapy.Spider):
 
         form_data = self.extract_form(response, '//form[@name="frmMain"]')
         form_data['hdLink'] = rel_url
+        form_data['hdAction'] = 'Link'
+        form_data['hdSelectAllChecked'] = 'false'
+        form_data['sCriteria'] = '0'
         logging.debug(form_data)
 
         action = response.xpath('//form[@name="frmMain"]/@action').get()
