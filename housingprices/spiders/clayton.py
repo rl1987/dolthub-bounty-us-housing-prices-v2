@@ -154,7 +154,17 @@ class ClaytonSpider(scrapy.Spider):
                 item['building_assessed_date'] = first_row_values[0]
                 item['land_assessed_value'] = first_row_values[1]
                 item['total_assessed_value'] = first_row_values[-1]
+ 
+        land_link = response.xpath('//a[./span[text()="Land"]]/@href').get()
+        yield response.follow(land_link, meta={'item': item}, callback=self.parse_property_land_page, dont_filter=True)
+
+    def parse_property_land_page(self, response):
+        item = response.meta.get('item')
         
+        item['land_area_acres'] = response.xpath('//tr[./td[text()="Acres"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '')
+        item['land_area_sqft'] = response.xpath('//tr[./td[text()="Square Feet"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '')
+        item['land_type'] = response.xpath('//tr[./td[text()="Land Type"]]/td[@class="DataletData"]/text()').get()
+
         yield item
 
         to_from_input_text = response.xpath('//input[@name="DTLNavigator$txtFromTo"]/@value').get()
