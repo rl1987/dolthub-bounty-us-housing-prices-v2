@@ -1,6 +1,7 @@
 import scrapy
 
 from scrapy.http import FormRequest
+from dateutil.parser import parse as parse_datetime
 
 import calendar
 from datetime import datetime, date
@@ -109,7 +110,7 @@ class ClaytonSpider(scrapy.Spider):
 
     def parse_property_main_page(self, response):
         parid = response.xpath('//input[@id="hdXPin"]/@value').get()
-        property_street_address = response.xpath('//td[@class="DataletHeaderBottom"][last()]/text()').get()
+        property_street_address = response.xpath('//td[@class="DataletHeaderBottom"][last()]/text()').get("").strip()
 
         item = SalesItem()
         item['state'] = self.state
@@ -142,20 +143,20 @@ class ClaytonSpider(scrapy.Spider):
             if first_row is not None:
                 first_row_values = first_row.xpath('./td/text()').getall()
                 if len(first_row_values) == 5:
-                    item['total_appraised_value'] = first_row_values[-1]
-                    item['land_appraised_value'] = first_row_values[1]
-                    item['building_appraised_value'] = first_row_values[2]
+                    item['total_appraised_value'] = first_row_values[-1].replace(",", "")
+                    item['land_appraised_value'] = first_row_values[1].replace(",", "")
+                    item['building_appraised_value'] = first_row_values[2].replace(",", "")
 
         as_values_table = response.xpath('//div[@name="VALUE_HIST_ASMT"]/table')
         if as_values_table is not None:
             first_row = as_values_table.xpath('./tr[2]')
             if first_row is not None:
                 first_row_values = first_row.xpath('./td/text()').getall()
-                if len(first_row_values) == 5:
-                    item['building_assessed_value'] = first_row_values[2]
-                    item['building_assessed_date'] = first_row_values[0]
-                    item['land_assessed_value'] = first_row_values[1]
-                    item['total_assessed_value'] = first_row_values[-1]
+                if len(first_row_values) == 4:
+                    item['building_assessed_value'] = first_row_values[2].replace(",", "")
+                    item['building_assessed_date'] = first_row_values[0].replace(",", "")
+                    item['land_assessed_value'] = first_row_values[1].replace(",", "")
+                    item['total_assessed_value'] = first_row_values[-1].replace(",", "")
  
         land_link = response.xpath('//a[./span[text()="Land"]]/@href').get()
         yield response.follow(land_link, meta={'item': item}, callback=self.parse_property_land_page, dont_filter=True)
@@ -164,10 +165,40 @@ class ClaytonSpider(scrapy.Spider):
         item = response.meta.get('item')
         
         item['land_area_acres'] = response.xpath('//tr[./td[text()="Acres"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '')
-        item['land_area_sqft'] = response.xpath('//tr[./td[text()="Square Feet"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '')
+        if item['land_area_acres'].startswith('.'):
+            item['land_area_acres'] = 0
+        elif item['land_area_acres'] != '':
+            item['land_area_acres'] = round(float(item['land_area_acres']))
+        item['land_area_sqft'] = response.xpath('//tr[./td[text()="Square Feet"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '').replace(",", "")
         item['land_type'] = response.xpath('//tr[./td[text()="Land Type"]]/td[@class="DataletData"]/text()').get()
 
+        sales_link = response.xpath('//a[./span[text()="Sales"]]/@href').get()
+        yield response.follow(sales_link, meta={'item': item}, callback=self.parse_property_sales_page, dont_filter=True)
+
+    def parse_property_sales_page(self, response):
+        item = response.meta.get('item')
+
+        sale_date_str = response.xpath('//tr[./td[text()="Sale Date"]]/td[@class="DataletData"]/text()').get()
+        if sale_date_str is not None:
+            sale_date_str = parse_datetime(sale_date_str).isoformat()
+
+        item['sale_datetime'] = sale_date_str
+        item['sale_price'] = response.xpath('//tr[./td[text()="Sale Price"]]/td[@class="DataletData"]/text()').get("").replace("$", "").replace(",", "")
+        item['seller_1_name'] = response.xpath('//tr[./td[text()="Grantor"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
+        item['buyer_1_name'] = response.xpath('//tr[./td[text()="Grantee"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
+        item['seller_2_name'] = response.xpath('//tr[./td[text()="Grantor 2"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
+        item['buyer_2_name'] = response.xpath('//tr[./td[text()="Grantee 2"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
+        item['book'] = response.xpath('//tr[./td[text()="Deed Book"]]/td[@class="DataletData"]/text()').get()
+        item['page'] = response.xpath('//tr[./td[text()="Deed Page"]]/td[@class="DataletData"]/text()').get()
+        item['transfer_deed_type'] = response.xpath('//tr[./td[text()="Instrument Type"]]/td[@class="DataletData"]/text()').get()
+        item['source_url'] = response.url # XXX: this is probably not right
+
         yield item
+
+        next_sale_link = response.xpath('//a[./i[@class="icon-angle-right "]]/@href').get()
+        if next_sale_link is not None:
+            yield response.follow(next_sale_link, callback=self.parse_property_sales_page, dont_filter=True, meta={'item': item})
+            return
 
         to_from_input_text = response.xpath('//input[@name="DTLNavigator$txtFromTo"]/@value').get()
         idx, total = to_from_input_text.split(" of ")
@@ -175,7 +206,7 @@ class ClaytonSpider(scrapy.Spider):
         total = int(total)
         
         if idx == total:
-            yield scrapy.Request(self.start_urls[-1], callback=self.parse_form_page, dont_filter=True)
+            yield scrapy.Request(self.start_urls[-1], callback=self.parse_form_page, dont_filter=True, meta={'item': item})
             return
 
         form_data = self.extract_form(response, '//form[@name="frmMain"]')
