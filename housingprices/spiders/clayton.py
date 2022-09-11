@@ -117,6 +117,7 @@ class ClaytonSpider(scrapy.Spider):
         item['property_id'] = parid
         item['property_street_address'] = property_street_address
         item['property_county'] = self.county
+        item['property_type'] = response.xpath('//tr[./td[contains(text(),"Property Class")]]/td[@class="DataletData"]/text()').get()
 
         residential_link = response.xpath('//a[./span[text()="Residential"]]/@href').get()
         yield response.follow(residential_link, meta={'item': item}, callback=self.parse_property_residential_page, dont_filter=True)
@@ -214,10 +215,11 @@ class ClaytonSpider(scrapy.Spider):
         del form_data['DTLNavigator$imageLast']
         form_data['DTLNavigator$imageNext.x'] = '0' # XXX
         form_data['DTLNavigator$imageNext.y'] = str(idx + 1)
+        form_data['hdMode'] = 'DEK_PROFILE'
         logging.info(form_data)
 
         action = response.xpath('//form[@name="frmMain"]/@action').get()
-        form_url = urljoin(response.url, action)
+        form_url = urljoin(response.url, action).replace('mode=sales', 'mode=dek_profile')
 
         yield FormRequest(form_url, formdata=form_data, callback=self.parse_property_main_page)
 
