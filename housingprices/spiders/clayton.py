@@ -141,19 +141,21 @@ class ClaytonSpider(scrapy.Spider):
             first_row = appr_values_table.xpath('./tr[2]')
             if first_row is not None:
                 first_row_values = first_row.xpath('./td/text()').getall()
-                item['total_appraised_value'] = first_row_values[-1]
-                item['land_appraised_value'] = first_row_values[1]
-                item['building_appraised_value'] = first_row_values[2]
+                if len(first_row_values) == 5:
+                    item['total_appraised_value'] = first_row_values[-1]
+                    item['land_appraised_value'] = first_row_values[1]
+                    item['building_appraised_value'] = first_row_values[2]
 
         as_values_table = response.xpath('//div[@name="VALUE_HIST_ASMT"]/table')
         if as_values_table is not None:
             first_row = as_values_table.xpath('./tr[2]')
             if first_row is not None:
                 first_row_values = first_row.xpath('./td/text()').getall()
-                item['building_assessed_value'] = first_row_values[2]
-                item['building_assessed_date'] = first_row_values[0]
-                item['land_assessed_value'] = first_row_values[1]
-                item['total_assessed_value'] = first_row_values[-1]
+                if len(first_row_values) == 5:
+                    item['building_assessed_value'] = first_row_values[2]
+                    item['building_assessed_date'] = first_row_values[0]
+                    item['land_assessed_value'] = first_row_values[1]
+                    item['total_assessed_value'] = first_row_values[-1]
  
         land_link = response.xpath('//a[./span[text()="Land"]]/@href').get()
         yield response.follow(land_link, meta={'item': item}, callback=self.parse_property_land_page, dont_filter=True)
