@@ -69,7 +69,7 @@ class ClaytonSpider(scrapy.Spider):
 
         logging.debug(form_data)
 
-        return FormRequest(response.url, formdata=form_data, callback=self.parse_search_result_list)
+        return FormRequest(response.url, formdata=form_data, callback=self.parse_search_result_list, dont_filter=True)
 
     def parse_form_page(self, response):
         if len(self.shards) == 0:
@@ -106,7 +106,7 @@ class ClaytonSpider(scrapy.Spider):
         action = response.xpath('//form[@name="frmMain"]/@action').get()
         form_url = urljoin(response.url, action)
 
-        yield FormRequest(form_url, formdata=form_data, callback=self.parse_property_main_page)
+        yield FormRequest(form_url, formdata=form_data, callback=self.parse_property_main_page, dont_filter=True)
 
     def parse_property_main_page(self, response):
         parid = response.xpath('//input[@id="hdXPin"]/@value').get()
@@ -221,5 +221,5 @@ class ClaytonSpider(scrapy.Spider):
         action = response.xpath('//form[@name="frmMain"]/@action').get()
         form_url = urljoin(response.url, action).replace('mode=sales', 'mode=dek_profile')
 
-        yield FormRequest(form_url, formdata=form_data, callback=self.parse_property_main_page)
+        yield FormRequest(form_url, formdata=form_data, callback=self.parse_property_main_page, dont_filter=True)
 
