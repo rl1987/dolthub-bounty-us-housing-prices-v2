@@ -192,7 +192,7 @@ class ClaytonSpider(scrapy.Spider):
         item['book'] = response.xpath('//tr[./td[text()="Deed Book"]]/td[@class="DataletData"]/text()').get()
         item['page'] = response.xpath('//tr[./td[text()="Deed Page"]]/td[@class="DataletData"]/text()').get()
         item['transfer_deed_type'] = response.xpath('//tr[./td[text()="Instrument Type"]]/td[@class="DataletData"]/text()').get()
-        item['source_url'] = response.url # XXX: this is probably not right
+        item['source_url'] = 'https://publicaccess.claytoncountyga.gov/search/advancedsearch.aspx?mode=advanced'
 
         yield item
 
