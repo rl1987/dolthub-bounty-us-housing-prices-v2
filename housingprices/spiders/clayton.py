@@ -181,7 +181,7 @@ class ClaytonSpider(scrapy.Spider):
 
         sale_date_str = response.xpath('//tr[./td[text()="Sale Date"]]/td[@class="DataletData"]/text()').get()
         if sale_date_str is not None:
-            sale_date_str = parse_datetime(sale_date_str).isoformat()
+            sale_date_str = parse_datetime(sale_date_str).isoformat().replace("T", " ")
 
         item['sale_datetime'] = sale_date_str
         item['sale_price'] = response.xpath('//tr[./td[text()="Sale Price"]]/td[@class="DataletData"]/text()').get("").replace("$", "").replace(",", "")
