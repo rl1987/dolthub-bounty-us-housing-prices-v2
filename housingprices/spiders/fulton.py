@@ -118,7 +118,7 @@ class FultonSpider(scrapy.Spider):
         item['property_street_address'] = property_street_address
         item['property_county'] = self.county
         item['property_city'] = response.xpath('//tr[./td[text()="City:"]]/td[@class="DataletData"]/text()').get()
-        item['building_num_units'] = response.xpath('//tr[./td[text()="Living Units:"]]/td[@class="DataletData"]/text()').get()
+        item['building_num_units'] = response.xpath('//tr[./td[text()="Living Units:"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '')
         item['property_type'] = response.xpath('//tr[./td[contains(text(),"Property Class")]]/td[@class="DataletData"]/text()').get()
 
         residential_link = response.xpath('//a[./span[text()="Residential"]]/@href').get()
