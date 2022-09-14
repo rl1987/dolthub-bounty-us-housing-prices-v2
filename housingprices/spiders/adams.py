@@ -65,8 +65,6 @@ class AdamsSpider(scrapy.Spider):
 
             row = dict(zip(header, row))
             
-            print(row)
-
             item['sale_datetime'] = parse_datetime(row.get('Sale Date')).isoformat().replace("T", " ")
             item['sale_price'] = row.get('Sale Price', "").replace("$", "").replace(",", "").split(".")[0]
             item['transfer_deed_type'] = row.get('Deed Type')
