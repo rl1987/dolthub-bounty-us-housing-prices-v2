@@ -12,6 +12,7 @@ BOT_NAME = 'housingprices'
 SPIDER_MODULES = ['housingprices.spiders']
 NEWSPIDER_MODULE = 'housingprices.spiders'
 
+RETRY_TIMES = 8
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'housingprices (+http://www.yourdomain.com)'
