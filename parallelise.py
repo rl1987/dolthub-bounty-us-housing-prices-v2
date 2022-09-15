@@ -62,7 +62,7 @@ def main():
     shards = []
 
     from_year = 1901
-    to_year = 1903
+    to_year = 2022
 
     for year in range(from_year, to_year + 1):
         for month in range(1, 13):
