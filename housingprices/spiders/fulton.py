@@ -141,33 +141,68 @@ class FultonSpider(scrapy.Spider):
 
     def parse_property_value_history_page(self, response):
         item = response.meta.get('item')
-            
+ 
+        appr_rows = dict()
+        appr_header = None
+
         appr_values_table = response.xpath('//table[@id="Appraised Values"]')
         if appr_values_table is not None:
-            first_row = appr_values_table.xpath('./tr[2]')
-            if first_row is not None:
-                first_row_values = first_row.xpath('./td/text()').getall()
-                if len(first_row_values) == 4:
-                    item['total_appraised_value'] = first_row_values[-1].replace(",", "")
-                    item['land_appraised_value'] = first_row_values[1].replace(",", "")
-                    item['building_appraised_value'] = first_row_values[2].replace(",", "")
+            for row in appr_values_table.xpath('./tr'):
+                row = row.xpath('./td/text()').getall()
+                if appr_header is None:
+                    appr_header = row
+                    continue
+                
+                if len(row) == 0:
+                    continue
 
-        as_values_table = response.xpath('//div[@name="VALUE_HIST_ASMT"]/table')
+                year = row[0]
+                try:
+                    year = int(year)
+                except:
+                    continue
+                row = dict(zip(appr_header, row))
+                appr_rows[year] = row
+
+        logging.debug(appr_rows)
+
+        as_rows = dict()
+        as_header = None
+
+        as_values_table = response.xpath('//table[@id="Assessed Values"]')
         if as_values_table is not None:
-            first_row = as_values_table.xpath('./tr[2]')
-            if first_row is not None:
-                first_row_values = first_row.xpath('./td/text()').getall()
-                if len(first_row_values) >= 5:
-                    item['building_assessed_value'] = first_row_values[3].replace(",", "")
-                    item['building_assessed_date'] = first_row_values[0].replace(",", "")
-                    item['land_assessed_value'] = first_row_values[2].replace(",", "")
-                    item['total_assessed_value'] = first_row_values[4].replace(",", "")
+            for row in as_values_table.xpath('./tr'):
+                row = row.xpath('./td/text()').getall()
+                if as_header is None:
+                    as_header = row
+                    continue
+                
+                if len(row) == 0:
+                    continue
+
+                year = row[0]   
+                try:
+                    year = int(year)
+                except:
+                    continue
+                row = dict(zip(as_header, row))
+                as_rows[year] = row
  
+        logging.debug(as_rows)
+
+        meta_dict = {
+            'item': item,
+            'appr_rows': appr_rows,
+            'as_rows': as_rows
+        }
+
         land_link = response.xpath('//a[./span[text()="Land"]]/@href').get()
-        yield response.follow(land_link, meta={'item': item}, callback=self.parse_property_land_page, dont_filter=True)
+        yield response.follow(land_link, meta=meta_dict, callback=self.parse_property_land_page, dont_filter=True)
 
     def parse_property_land_page(self, response):
         item = response.meta.get('item')
+        appr_rows = response.meta.get('appr_rows')
+        as_rows = response.meta.get('as_rows')
         
         item['land_area_acres'] = response.xpath('//tr[./td[text()="Acres:"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '')
         if item['land_area_acres'].startswith('.'):
@@ -177,15 +212,23 @@ class FultonSpider(scrapy.Spider):
         item['land_area_sqft'] = response.xpath('//tr[./td[text()="Square Feet:"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '').replace(",", "")
         item['land_type'] = response.xpath('//tr[./td[text()="Land Type:"]]/td[@class="DataletData"]/text()').get()
 
+        meta_dict = {
+            'item': item,
+            'appr_rows': appr_rows,
+            'as_rows': as_rows
+        }
+
         sales_link = response.xpath('//a[./span[text()="Sales"]]/@href').get()
-        yield response.follow(sales_link, meta={'item': item}, callback=self.parse_property_sales_page, dont_filter=True)
+        yield response.follow(sales_link, meta=meta_dict, callback=self.parse_property_sales_page, dont_filter=True)
 
     def parse_property_sales_page(self, response):
         item = response.meta.get('item')
+        appr_rows = response.meta.get('appr_rows')
+        as_rows = response.meta.get('as_rows')
 
         sale_date_str = response.xpath('//tr[./td[text()="Sales Date:"]]/td[@class="DataletData"]/text()').get()
-        if sale_date_str is not None:
-            sale_date_str = parse_datetime(sale_date_str).isoformat().replace("T", " ")
+        sale_date = parse_datetime(sale_date_str)
+        sale_date_str = sale_date.isoformat().replace("T", " ")
 
         item['sale_datetime'] = sale_date_str
         item['sale_price'] = response.xpath('//table[@id="Sales"]//td[@bgcolor="#ffffc9"][last()]/text()').get("").replace("$", "").replace(",", "")
@@ -196,20 +239,48 @@ class FultonSpider(scrapy.Spider):
         item['transfer_deed_type'] = response.xpath('//tr[./td[text()="Deed Type:"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '')
         item['source_url'] = 'https://iaspublicaccess.fultoncountyga.gov/search/advancedsearch.aspx?mode=advanced'
 
+        appr_row = appr_rows.get(sale_date.year)
+        if appr_row is not None:
+            item['total_appraised_value'] = appr_row.get("Total").replace(",", "")
+            item['land_appraised_value'] = appr_row.get("Land").replace(",", "")
+            item['building_appraised_value'] = appr_row.get("Building").replace(",", "")
+        else:
+            item['total_appraised_value'] = None
+            item['land_appraised_value'] = None
+            item['building_appraised_value'] = None
+
+        as_row = as_rows.get(sale_date.year)
+        if as_row is not None:
+            item['building_assessed_value'] = as_row.get('Buidling').replace(",", "")
+            item['building_assessed_date'] = sale_date.year
+            item['land_assessed_value'] = as_row.get('Land').replace(",", "")
+            item['total_assessed_value'] = as_row.get('Total').replace(",", "")
+        else:
+            item['building_assessed_value'] = None
+            item['building_assessed_value'] = None
+            item['land_assessed_value'] = None
+            item['total_assessed_value'] = None
+
         yield item
+
+        meta_dict = {
+            'item': item,
+            'appr_rows': appr_rows,
+            'as_rows': as_rows
+        }
 
         next_sale_link = response.xpath('//a[./i[@class="icon-angle-right "]]/@href').get()
         if next_sale_link is not None:
-            yield response.follow(next_sale_link, callback=self.parse_property_sales_page, dont_filter=True, meta={'item': item})
+            yield response.follow(next_sale_link, callback=self.parse_property_sales_page, dont_filter=True, meta=meta_dict)
             return
 
         to_from_input_text = response.xpath('//input[@name="DTLNavigator$txtFromTo"]/@value').get()
         idx, total = to_from_input_text.split(" of ")
         idx = int(idx)
         total = int(total)
-        
+
         if idx == total:
-            yield scrapy.Request(self.start_urls[-1], callback=self.parse_form_page, dont_filter=True, meta={'item': item})
+            yield scrapy.Request(self.start_urls[-1], callback=self.parse_form_page, dont_filter=True, meta=meta_dict)
             return
 
         form_data = self.extract_form(response, '//form[@name="frmMain"]')
