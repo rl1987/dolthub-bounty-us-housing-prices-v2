@@ -19,13 +19,25 @@ class FultonSpider(scrapy.Spider):
     state = "GA"
     county = "FULTON"
     shards = []
+    stats_filepath = None
 
-    def start_requests(self):
+    def __init__(self, year=None, month=None, stats_filepath=None):
+        super().__init__()
+
+        self.stats_filepath = stats_filepath
+
+        if year is not None and month is not None:
+            year = int(year)
+            month = int(month)
+            self.shards = [(year, month)]
+            return
+
         for year in range(self.start_year, datetime.today().year + 1):
             for month in range(1, 13):
                 shard = (year, month)
                 self.shards.append(shard)
 
+    def start_requests(self):
         yield scrapy.Request(self.start_urls[0], callback=self.parse_disclaimer_page)
 
     def parse_disclaimer_page(self, response):
@@ -74,6 +86,7 @@ class FultonSpider(scrapy.Spider):
     def parse_form_page(self, response):
         if len(self.shards) == 0:
             yield None
+            return
 
         year, month = self.shards.pop()
         logging.info("Year: {}, month: {}".format(year, month))
