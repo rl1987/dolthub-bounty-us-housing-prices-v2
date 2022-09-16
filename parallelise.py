@@ -7,7 +7,7 @@ import json
 import os
 
 def run_scrapy_subprocess(year, month):
-    csv_filename = "adams-{}-{}.csv".format(year, month)
+    csv_filename = "fulton-{}-{}.csv".format(year, month)
     if os.path.isfile(csv_filename):
         os.unlink(csv_filename)
 
