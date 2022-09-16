@@ -41,7 +41,10 @@ def run_scrapy_subprocess(year, month):
     if stats.get("log_count/ERROR") is not None:
         return False
 
-    if stats.get("downloader/response_status_count/500") is not None and stats.get("downloader/response_status_count/200") > 8:
+    if stats.get("downloader/response_status_count/500") is not None and stats.get("downloader/response_status_count/500") > 8:
+        return False
+
+    if stats.get("downloader/response_status_count/501") is not None and stats.get("downloader/response_status_count/501") > 8:
         return False
 
     return True
