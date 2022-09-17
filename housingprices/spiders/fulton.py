@@ -254,9 +254,9 @@ class FultonSpider(scrapy.Spider):
 
         appr_row = appr_rows.get(sale_date.year)
         if appr_row is not None:
-            item['total_appraised_value'] = appr_row.get("Total").replace(",", "")
-            item['land_appraised_value'] = appr_row.get("Land").replace(",", "")
-            item['building_appraised_value'] = appr_row.get("Building").replace(",", "")
+            item['total_appraised_value'] = appr_row.get("Total", "").replace(",", "")
+            item['land_appraised_value'] = appr_row.get("Land", "").replace(",", "")
+            item['building_appraised_value'] = appr_row.get("Building", "").replace(",", "")
         else:
             item['total_appraised_value'] = None
             item['land_appraised_value'] = None
@@ -264,10 +264,10 @@ class FultonSpider(scrapy.Spider):
 
         as_row = as_rows.get(sale_date.year)
         if as_row is not None:
-            item['building_assessed_value'] = as_row.get('Buidling').replace(",", "")
+            item['building_assessed_value'] = as_row.get('Buidling', "").replace(",", "")
             item['building_assessed_date'] = sale_date.year
-            item['land_assessed_value'] = as_row.get('Land').replace(",", "")
-            item['total_assessed_value'] = as_row.get('Total').replace(",", "")
+            item['land_assessed_value'] = as_row.get('Land', "").replace(",", "")
+            item['total_assessed_value'] = as_row.get('Total', "").replace(",", "")
         else:
             item['building_assessed_value'] = None
             item['building_assessed_value'] = None
