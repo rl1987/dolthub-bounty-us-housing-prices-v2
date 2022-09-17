@@ -7,6 +7,8 @@ from dateutil.parser import parse as parse_datetime
 from datetime import date, datetime, timedelta
 import logging
 
+from housingprices.items import SalesItem
+
 class BrowardSpider(scrapy.Spider):
     name = 'broward'
     allowed_domains = ['bcpa.net']
@@ -57,5 +59,64 @@ class BrowardSpider(scrapy.Spider):
             yield response.follow(next_page_link, callback=self.parse_property_page)
 
     def parse_property_page(self, response):
-        pass
+        item = SalesItem()
+        
+        item['state'] = 'FL'
+        item['property_street_address'] = response.xpath('//tr[./td/span[contains(text(), "Site Address")]]/td[last()]//script/text()').get("").replace("UpdateTitle('", "").replace("')", "")
+
+        units_beds_baths = response.xpath('//tr[./td/span[contains(text(), "Units/Beds/Baths")]]/td[last()]//span/text()').get("").strip()
+        units_beds_baths = units_beds_baths.split('/')
+        if len(units_beds_baths) == 3:
+            item['building_num_units'] = units_beds_baths[0]
+            item['building_num_beds'] = units_beds_baths[1]
+            item['building_num_baths'] = units_beds_baths[2]
+        
+        item['building_year_built'] = response.xpath('//a[@href="RecEffNote.asp"]/@onclick').get("").replace("','Menu')", "").split("&Act=")[-1]
+        item['source_url'] = response.url
+
+        land_value_by_year = dict()
+        building_value_by_year = dict()
+        total_value_by_year = dict()
+
+        for row in response.xpath('//span[contains(text(), "Property Assessment Values")]/parent::*/parent::*/parent::*/tr/parent::*/tr'):
+            row = row.xpath('./td')
+            if len(row) < 4:
+                continue
+
+            # Whoever coded this site should fucking die.
+
+            year = row[0].xpath('./span/text()').get()
+            if year is None or year == '':
+                year = row[0].xpath('./span/span/text()').get()
+
+            if year is None or year == '':
+                year = row[0].xpath('./span/font/text()').get()
+
+            if type(year) == str:
+                year = year.strip()
+
+            print(year)
+            if year is None or len(year) != 4 or year == 'Year':
+                continue
+            
+            year = int(year)
+
+            row = list(map(lambda td: td.xpath('./span/text()').get("").strip(), row))
+
+            land_value = row[1].replace("$", "").replace(",", "")
+            building_value = row[2].replace("$", "").replace(",", "")
+            total_value = row[3].replace("$", "").replace(",", "")
+
+            land_value_by_year[year] = land_value
+            building_value_by_year[year] = building_value
+            total_value_by_year[year] = total_value
+        
+        logging.info(item)
+        print(land_value_by_year)
+        print(building_value_by_year)
+        print(total_value_by_year)
+        
+        record_urls = response.xpath('//a[contains(@href, "AcclaimWeb")]/@href').getall()
+
+        logging.info(record_urls)
 
