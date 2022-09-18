@@ -240,6 +240,8 @@ class FultonSpider(scrapy.Spider):
         as_rows = response.meta.get('as_rows')
 
         sale_date_str = response.xpath('//tr[./td[text()="Sales Date:"]]/td[@class="DataletData"]/text()').get()
+        if sale_date_str is None:
+            return
         sale_date = parse_datetime(sale_date_str)
         sale_date_str = sale_date.isoformat().replace("T", " ")
 
