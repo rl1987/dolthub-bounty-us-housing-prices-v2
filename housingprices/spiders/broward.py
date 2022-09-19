@@ -4,6 +4,8 @@ from datetime import date, timedelta
 import logging
 import json
 
+from housingprices.items import SalesItem
+
 PER_PAGE = 100
 
 class BrowardSpider(scrapy.Spider):
@@ -60,6 +62,7 @@ class BrowardSpider(scrapy.Spider):
                 continue
 
             tax_year = sale_date_str.split("/")[-1]
+            tax_year = int(tax_year)
 
             folio_no = result_dict.get("folioNumber")
             
@@ -67,20 +70,101 @@ class BrowardSpider(scrapy.Spider):
             payload = '{' + payload + '}'
             logging.debug(payload)
 
-            yield scrapy.Request("https://web.bcpa.net/bcpaclient/search.aspx/getParcelInformationData", headers=self.headers, method="POST", body=payload, callback=self.parse_parcelinfo_api_response)
+            yield scrapy.Request("https://web.bcpa.net/bcpaclient/search.aspx/getParcelInformationData", headers=self.headers, method="POST", body=payload, callback=self.parse_parcelinfo_api_response, meta={"tax_year": tax_year})
 
         if len(results) == PER_PAGE:
             logging.warn("More than PER_PAGE results!")
 
+    def parse_date_str(self, date_str):
+        components = date_str.split("/")
+        if len(components) != 3:
+            return None
+
+        return date(year=int(components[2]), month=int(components[0]), day=int(components[1]))
+
     def parse_parcelinfo_api_response(self, response):
+        tax_year = response.meta.get("tax_year")
+
         json_str = response.text
         json_dict = json.loads(json_str)
 
         try:
-            result_dict = json_dict.get("d")[0]
+            json_dict = json_dict.get("d")[0]
         except:
             return
 
-        # TODO: parse stuff into item
+        item = SalesItem()
+        item['state'] = 'FL'
+        item['property_zip5'] = json_dict.get('situsZipCode')
+        item['property_street_address'] = json_dict.get('situsAddress1')
+        item['property_city'] = json_dict.get('situsCity')
+        item['property_county'] = 'BROWARD'
+        item['property_id'] = json_dict.get("folioNumber")
+        item['building_num_units'] = json_dict.get("units")
+        item['building_year_built'] = json_dict.get("actualAge")
+        item['source_url'] = 'https://web.bcpa.net/bcpaclient/#/Sales-Search'
+        item['building_num_beds'] = json_dict.get('beds')
+        item['building_num_baths'] = json_dict.get('baths')
+        item['building_area_sqft'] = json_dict.get("bldgSqFT")
+        
+        i = 1
 
+        while True:
+            type_field_name = "landCalcType" + str(i)
+            if not type_field_name in json_dict:
+                break
+
+            type_field_value = json_dict.get(type_field_name)
+            if type_field_value == "Square Foot":
+                fact_field_name = "landCalcFact" + str(i)
+                fact_field_value = json_dict.get(fact_field_name)
+                if type(fact_field_value) == str:
+                    item['land_area_sqft'] = fact_field_value.replace(",", "").replace(" SqFt", "")
+            i += 1
+
+        item['land_type'] = json_dict.get("landCalcZoning") # XXX: is this right?
+        if json_dict.get("sohValue") is not None:
+            item['total_assessed_value'] = json_dict.get("sohValue").replace("$", "").replace(",", "")
+
+        if json_dict.get("landValue") is not None:
+            item['land_appraised_value'] = json_dict.get("landValue").replace("$", "").replace(",", "")
+        if json_dict.get("bldgValue") is not None:
+            item['building_appraised_value'] = json_dict.get("bldgValue").replace("$", "").replace(",", "")
+        if json_dict.get("justValue") is not None:
+            item['total_appraised_value'] = json_dict.get("justValue").replace("$", "").replace(",", "")
+
+        i = 1
+    
+        while True:
+            sale_date_field_name = "saleDate" + str(i)
+            if not sale_date_field_name in json_dict:
+                break
+
+            sale_date_str = json_dict.get(sale_date_field_name)
+            sale_date = self.parse_date_str(sale_date_str)
+            if sale_date is None or sale_date.year != tax_year:
+                i += 1
+                continue
+    
+            item['sale_datetime'] = sale_date.isoformat().replace("T", " ")
+            sale_price_field_name = "stampAmount" + str(i)
+            item['sale_price'] = json_dict.get(sale_price_field_name)
+            if type(item['sale_price']) == str:
+                item['sale_price'] = item['sale_price'].replace("$", "").replace(",", "")
+
+            book_page_field_name = "bookAndPageOrCin" + str(i)
+            book_page = json_dict.get(book_page_field_name)
+            if book_page is not None and " / " in book_page:
+                book, page = book_page.split(" / ")
+                item['book'] = book
+                item['page'] = page
+            else:
+                item['sale_id'] = book_page
+            
+            deed_type_field_name = "deedType" + str(i)
+            item['transfer_deed_type'] = json_dict.get(deed_type_field_name)
+
+            i += 1
+
+            yield item
 
