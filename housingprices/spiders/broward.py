@@ -73,7 +73,17 @@ class BrowardSpider(scrapy.Spider):
             yield scrapy.Request("https://web.bcpa.net/bcpaclient/search.aspx/getParcelInformationData", headers=self.headers, method="POST", body=payload, callback=self.parse_parcelinfo_api_response, meta={"tax_year": tax_year})
 
         if len(results) == PER_PAGE:
-            logging.warn("More than PER_PAGE results!")
+            old_payload = response.request.body
+            old_payload = str(old_payload)
+            pagenum_at = old_payload.index("pagenum: \"") + len("pagenum: \"")
+            pagenum = old_payload[pagenum_at:].split("\"")[0]
+            pagenum = int(pagenum)
+            pagenum += 1
+            payload = old_payload[:pagenum_at] + str(pagenum) + '", pagecount: "100"}'
+            logging.debug(payload)
+
+            url = "https://web.bcpa.net/bcpaclient/searchallsales.aspx/getSaleTypeResult"
+            yield scrapy.Request(url, method="POST", headers=self.headers, body=payload, callback=self.parse_search_api_response)
 
     def parse_date_str(self, date_str):
         components = date_str.split("/")
