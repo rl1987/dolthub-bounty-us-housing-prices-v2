@@ -124,6 +124,7 @@ class FultonSpider(scrapy.Spider):
     def parse_property_main_page(self, response):
         parid = response.xpath('//input[@id="hdXPin"]/@value').get()
         property_street_address = response.xpath('//td[@class="DataletHeaderBottom"][last()]/text()').get("").strip()
+        property_street_address = " ".join(property_street_address.split()) # https://stackoverflow.com/a/1546251
 
         item = SalesItem()
         item['state'] = self.state
@@ -242,6 +243,7 @@ class FultonSpider(scrapy.Spider):
         sale_date_str = response.xpath('//tr[./td[text()="Sales Date:"]]/td[@class="DataletData"]/text()').get()
         if sale_date_str is None:
             return
+
         sale_date = parse_datetime(sale_date_str)
         sale_date_str = sale_date.isoformat().replace("T", " ")
 
