@@ -5,9 +5,12 @@ import logging
 import subprocess
 import json
 import os
+import sys
+
+spider_name = None
 
 def run_scrapy_subprocess(year, month):
-    csv_filename = "fulton-{}-{}.csv".format(year, month)
+    csv_filename = "{}-{}-{}.csv".format(spider_name, year, month)
     if os.path.isfile(csv_filename):
         os.unlink(csv_filename)
 
@@ -22,7 +25,7 @@ def run_scrapy_subprocess(year, month):
         "runspider",
         "-o", csv_filename,
         "--logfile", log_filename,
-        "housingprices/spiders/fulton.py",
+        "housingprices/spiders/{}.py".format(spider_name),
         "-a", "year={}".format(year),
         "-a", "month={}".format(month),
         "-a", "stats_filepath={}".format(stats_filename),
@@ -54,7 +57,7 @@ def perform_task(shard):
     print("Year: {}, month: {}".format(year, month))
 
     while True:
-        success = run_scrapy_subprocess(year, month)
+        success = run_scrapy_subprocess(spidername, year, month)
         if success:
             print("{} {} succeeded".format(year, month))
             break
@@ -62,6 +65,15 @@ def perform_task(shard):
         print("{} {} failed - retrying".format(year, month))
 
 def main():
+    global spider_name
+
+    if len(sys.argv) != 2:
+        print("Usage:")
+        print("{} <spider_name>".format(sys.argv[0]))
+        return
+    
+    spider_name = sys.argv[1]
+
     shards = []
 
     from_year = 1901
