@@ -5,6 +5,7 @@ import sys
 
 import doltcli as dolt
 
+
 def main():
     if len(sys.argv) != 2:
         print("Usage:")
@@ -22,19 +23,16 @@ def main():
     res = db.sql(sql, result_format="json")
 
     for row in res["rows"]:
-        state_code = row['code']
+        state_code = row["code"]
 
         sql2 = 'SELECT COUNT(*) FROM `sales` WHERE `state` = "{}";'.format(state_code)
         print(sql2)
 
         res2 = db.sql(sql2, result_format="json")
 
-        count = res2['rows'][0]['COUNT(*)']
+        count = res2["rows"][0]["COUNT(*)"]
 
-        csv_row = {
-            'state_code': state_code,
-            'count': count
-        }
+        csv_row = {"state_code": state_code, "count": count}
 
         print(csv_row)
 
@@ -42,6 +40,6 @@ def main():
 
     out_f.close()
 
+
 if __name__ == "__main__":
     main()
-

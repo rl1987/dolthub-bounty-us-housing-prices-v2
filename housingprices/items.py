@@ -53,4 +53,3 @@ class SalesItem(scrapy.Item):
     land_appraised_value = scrapy.Field()
     building_appraised_value = scrapy.Field()
     land_type = scrapy.Field()
-

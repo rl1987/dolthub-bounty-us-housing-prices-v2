@@ -4,10 +4,11 @@
 from scrapy.statscollectors import StatsCollector
 from scrapy.utils.serialize import ScrapyJSONEncoder
 
+
 class MyStatsCollector(StatsCollector):
     def _persist_stats(self, stats, spider):
         encoder = ScrapyJSONEncoder()
-        
+
         filename = "stats.json"
         if spider.stats_filepath is not None:
             filename = spider.stats_filepath
