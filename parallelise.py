@@ -57,7 +57,7 @@ def perform_task(shard):
     print("Year: {}, month: {}".format(year, month))
 
     while True:
-        success = run_scrapy_subprocess(spidername, year, month)
+        success = run_scrapy_subprocess(year, month)
         if success:
             print("{} {} succeeded".format(year, month))
             break
