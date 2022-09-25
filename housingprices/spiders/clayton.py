@@ -151,6 +151,8 @@ class ClaytonSpider(scrapy.Spider):
 
     def parse_property_value_history_page(self, response):
         item = response.meta.get('item')
+        appr_rows = response.meta.get('appr_rows')
+        as_rows = response.meta.get('as_rows')
  
         appr_rows = dict()
         appr_header = None
@@ -211,6 +213,8 @@ class ClaytonSpider(scrapy.Spider):
 
     def parse_property_land_page(self, response):
         item = response.meta.get('item')
+        appr_rows = response.meta.get('appr_rows')
+        as_rows = response.meta.get('as_rows')
         
         item['land_area_acres'] = response.xpath('//tr[./td[text()="Acres"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '')
         if item['land_area_acres'].startswith('.'):
@@ -220,11 +224,19 @@ class ClaytonSpider(scrapy.Spider):
         item['land_area_sqft'] = response.xpath('//tr[./td[text()="Square Feet"]]/td[@class="DataletData"]/text()').get("").replace('\xa0', '').replace(",", "")
         item['land_type'] = response.xpath('//tr[./td[text()="Land Type"]]/td[@class="DataletData"]/text()').get()
 
+        meta_dict = {
+            'item': item,
+            'appr_rows': appr_rows,
+            'as_rows': as_rows
+        }
+
         sales_link = response.xpath('//a[./span[text()="Sales"]]/@href').get()
-        yield response.follow(sales_link, meta={'item': item}, callback=self.parse_property_sales_page, dont_filter=True)
+        yield response.follow(sales_link, meta=meta_dict, callback=self.parse_property_sales_page, dont_filter=True)
 
     def parse_property_sales_page(self, response):
         item = response.meta.get('item')
+        appr_rows = response.meta.get('appr_rows')
+        as_rows = response.meta.get('as_rows')
 
         sale_date_str = response.xpath('//tr[./td[text()="Sale Date"]]/td[@class="DataletData"]/text()').get()
         if sale_date_str is not None:
@@ -240,6 +252,28 @@ class ClaytonSpider(scrapy.Spider):
         item['page'] = response.xpath('//tr[./td[text()="Deed Page"]]/td[@class="DataletData"]/text()').get()
         item['transfer_deed_type'] = response.xpath('//tr[./td[text()="Instrument Type"]]/td[@class="DataletData"]/text()').get()
         item['source_url'] = 'https://publicaccess.claytoncountyga.gov/search/advancedsearch.aspx?mode=advanced'
+
+        appr_row = appr_rows.get(sale_date.year)
+        if appr_row is not None:
+            item['total_appraised_value'] = appr_row.get("Total", "").replace(",", "")
+            item['land_appraised_value'] = appr_row.get("Land", "").replace(",", "")
+            item['building_appraised_value'] = appr_row.get("Building", "").replace(",", "")
+        else:
+            item['total_appraised_value'] = None
+            item['land_appraised_value'] = None
+            item['building_appraised_value'] = None
+
+        as_row = as_rows.get(sale_date.year)
+        if as_row is not None:
+            item['building_assessed_value'] = as_row.get('Buidling', "").replace(",", "")
+            item['building_assessed_date'] = sale_date.year
+            item['land_assessed_value'] = as_row.get('Land', "").replace(",", "")
+            item['total_assessed_value'] = as_row.get('Total', "").replace(",", "")
+        else:
+            item['building_assessed_value'] = None
+            item['building_assessed_value'] = None
+            item['land_assessed_value'] = None
+            item['total_assessed_value'] = None
 
         yield item
 
