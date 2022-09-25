@@ -19,13 +19,25 @@ class ClaytonSpider(scrapy.Spider):
     state = "GA"
     county = "CLAYTON"
     shards = []
+    stats_filepath = None
 
-    def start_requests(self):
+    def __init__(self, year=None, month=None, stats_filepath=None):
+        super().__init__()
+
+        self.stats_filepath = stats_filepath
+
+        if year is not None and month is not None:
+            year = int(year)
+            month = int(month)
+            self.shards = [(year, month)]
+            return
+
         for year in range(self.start_year, datetime.today().year + 1):
             for month in range(1, 13):
                 shard = (year, month)
                 self.shards.append(shard)
 
+    def start_requests(self):
         yield scrapy.Request(self.start_urls[0], callback=self.parse_disclaimer_page)
 
     def parse_disclaimer_page(self, response):
@@ -74,6 +86,7 @@ class ClaytonSpider(scrapy.Spider):
     def parse_form_page(self, response):
         if len(self.shards) == 0:
             yield None
+            return
 
         year, month = self.shards.pop()
         logging.info("Year: {}, month: {}".format(year, month))
@@ -111,6 +124,7 @@ class ClaytonSpider(scrapy.Spider):
     def parse_property_main_page(self, response):
         parid = response.xpath('//input[@id="hdXPin"]/@value').get()
         property_street_address = response.xpath('//td[@class="DataletHeaderBottom"][last()]/text()').get("").strip()
+        property_street_address = " ".join(property_street_address.split()) # https://stackoverflow.com/a/1546251
 
         item = SalesItem()
         item['state'] = self.state
@@ -137,30 +151,63 @@ class ClaytonSpider(scrapy.Spider):
 
     def parse_property_value_history_page(self, response):
         item = response.meta.get('item')
-            
+ 
+        appr_rows = dict()
+        appr_header = None
+
         appr_values_table = response.xpath('//table[@id="Appraised Values"]')
         if appr_values_table is not None:
-            first_row = appr_values_table.xpath('./tr[2]')
-            if first_row is not None:
-                first_row_values = first_row.xpath('./td/text()').getall()
-                if len(first_row_values) == 5:
-                    item['total_appraised_value'] = first_row_values[-1].replace(",", "")
-                    item['land_appraised_value'] = first_row_values[1].replace(",", "")
-                    item['building_appraised_value'] = first_row_values[2].replace(",", "")
+            for row in appr_values_table.xpath('./tr'):
+                row = row.xpath('./td/text()').getall()
+                if appr_header is None:
+                    appr_header = row
+                    continue
+                
+                if len(row) == 0:
+                    continue
 
-        as_values_table = response.xpath('//div[@name="VALUE_HIST_ASMT"]/table')
+                year = row[0]
+                try:
+                    year = int(year)
+                except:
+                    continue
+                row = dict(zip(appr_header, row))
+                appr_rows[year] = row
+
+        logging.debug(appr_rows)
+
+        as_rows = dict()
+        as_header = None
+
+        as_values_table = response.xpath('//table[@id="Assessed Values"]')
         if as_values_table is not None:
-            first_row = as_values_table.xpath('./tr[2]')
-            if first_row is not None:
-                first_row_values = first_row.xpath('./td/text()').getall()
-                if len(first_row_values) == 4:
-                    item['building_assessed_value'] = first_row_values[2].replace(",", "")
-                    item['building_assessed_date'] = first_row_values[0].replace(",", "")
-                    item['land_assessed_value'] = first_row_values[1].replace(",", "")
-                    item['total_assessed_value'] = first_row_values[-1].replace(",", "")
+            for row in as_values_table.xpath('./tr'):
+                row = row.xpath('./td/text()').getall()
+                if as_header is None:
+                    as_header = row
+                    continue
+                
+                if len(row) == 0:
+                    continue
+
+                year = row[0]   
+                try:
+                    year = int(year)
+                except:
+                    continue
+                row = dict(zip(as_header, row))
+                as_rows[year] = row
  
+        logging.debug(as_rows)
+
+        meta_dict = {
+            'item': item,
+            'appr_rows': appr_rows,
+            'as_rows': as_rows
+        }
+
         land_link = response.xpath('//a[./span[text()="Land"]]/@href').get()
-        yield response.follow(land_link, meta={'item': item}, callback=self.parse_property_land_page, dont_filter=True)
+        yield response.follow(land_link, meta=meta_dict, callback=self.parse_property_land_page, dont_filter=True)
 
     def parse_property_land_page(self, response):
         item = response.meta.get('item')
