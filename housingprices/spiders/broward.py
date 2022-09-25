@@ -160,7 +160,6 @@ class BrowardSpider(scrapy.Spider):
                     )
             i += 1
 
-        item["land_type"] = json_dict.get("landCalcZoning")  # XXX: is this right?
         if json_dict.get("sohValue") is not None:
             item["total_assessed_value"] = (
                 json_dict.get("sohValue").replace("$", "").replace(",", "")
