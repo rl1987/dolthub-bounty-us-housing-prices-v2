@@ -151,6 +151,9 @@ class ChathamSpider(scrapy.Spider):
             .get("")
             .strip()
         )
+        property_street_address = " ".join(
+            property_street_address.split()
+        )  # https://stackoverflow.com/a/1546251
 
         item = SalesItem()
         item["state"] = self.state
