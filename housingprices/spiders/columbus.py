@@ -22,13 +22,25 @@ class ColumbusSpider(scrapy.Spider):
     state = "GA"
     county = "COLUMBUS"
     shards = []
+    stats_filepath = None
 
-    def start_requests(self):
+    def __init__(self, year=None, month=None, stats_filepath=None):
+        super().__init__()
+
+        self.stats_filepath = stats_filepath
+
+        if year is not None and month is not None:
+            year = int(year)
+            month = int(month)
+            self.shards = [(year, month)]
+            return
+
         for year in range(self.start_year, datetime.today().year + 1):
             for month in range(1, 13):
                 shard = (year, month)
                 self.shards.append(shard)
 
+    def start_requests(self):
         yield scrapy.Request(self.start_urls[0], callback=self.parse_disclaimer_page)
 
     def parse_disclaimer_page(self, response):
@@ -73,8 +85,7 @@ class ColumbusSpider(scrapy.Spider):
         form_data["PageNum"] = "1"
         form_data["PageSize"] = "15"
         form_data["hdCriteriaTypes"] = "C|C|C|N|C|C|N|D|C|C|N|N|N|N"
-        form_data["sCriteria"] = "8"
-        form_data["txCriterias"] = "8"
+        form_data["sCriteria"] = "0"
         form_data["hdSearchType"] = "AdvSearch"
 
         logging.debug(form_data)
@@ -89,6 +100,7 @@ class ColumbusSpider(scrapy.Spider):
     def parse_form_page(self, response):
         if len(self.shards) == 0:
             yield None
+            return
 
         year, month = self.shards.pop()
         logging.info("Year: {}, month: {}".format(year, month))
@@ -117,8 +129,7 @@ class ColumbusSpider(scrapy.Spider):
         form_data["hdLink"] = rel_url
         form_data["hdAction"] = "Link"
         form_data["hdSelectAllChecked"] = "false"
-        form_data["sCriteria"] = "8"
-        form_data["txCriterias"] = "8"
+        form_data["sCriteria"] = "0"
         logging.debug(form_data)
 
         action = response.xpath('//form[@name="frmMain"]/@action').get()
@@ -138,6 +149,9 @@ class ColumbusSpider(scrapy.Spider):
             .get("")
             .strip()
         )
+        property_street_address = " ".join(
+            property_street_address.split()
+        )  # https://stackoverflow.com/a/1546251
 
         item = SalesItem()
         item["state"] = self.state
