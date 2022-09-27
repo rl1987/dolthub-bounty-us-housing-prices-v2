@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 from housingprices.items import SalesItem
 
 
-class ChathamSpider(scrapy.Spider):
+class WashingtonSpider(scrapy.Spider):
     name = "washington"
     allowed_domains = ["tyler.washcopa.org"]
     start_urls = [
