@@ -12,7 +12,7 @@ from housingprices.items import SalesItem
 
 
 class SussexSpider(scrapy.Spider):
-    name = "clayton"
+    name = "sussex"
     allowed_domains = ["property.sussexcountyde.gov"]
     start_urls = [
         "https://property.sussexcountyde.gov/PT/Search/Disclaimer.aspx?FromUrl=../search/advancedsearch.aspx?mode=advanced",
