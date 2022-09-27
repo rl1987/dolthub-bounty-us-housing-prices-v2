@@ -22,13 +22,25 @@ class WashingtonSpider(scrapy.Spider):
     state = "PA"
     county = "WASHINGTON"
     shards = []
+    stats_filepath = None
 
-    def start_requests(self):
+    def __init__(self, year=None, month=None, stats_filepath=None):
+        super().__init__()
+
+        self.stats_filepath = stats_filepath
+
+        if year is not None and month is not None:
+            year = int(year)
+            month = int(month)
+            self.shards = [(year, month)]
+            return
+
         for year in range(self.start_year, datetime.today().year + 1):
             for month in range(1, 13):
                 shard = (year, month)
                 self.shards.append(shard)
 
+    def start_requests(self):
         yield scrapy.Request(self.start_urls[0], callback=self.parse_disclaimer_page)
 
     def parse_disclaimer_page(self, response):
@@ -88,6 +100,7 @@ class WashingtonSpider(scrapy.Spider):
     def parse_form_page(self, response):
         if len(self.shards) == 0:
             yield None
+            return
 
         year, month = self.shards.pop()
         logging.info("Year: {}, month: {}".format(year, month))
@@ -131,32 +144,32 @@ class WashingtonSpider(scrapy.Spider):
 
     def parse_property_main_page(self, response):
         parid = response.xpath('//input[@id="hdXPin"]/@value').get()
-        property_street_address = (
-            response.xpath('//td[@class="DataletHeaderBottom"][last()]/text()')
-            .get("")
-            .strip()
-        )
 
         item = SalesItem()
         item["state"] = self.state
         item["property_id"] = parid
-        item["property_street_address"] = property_street_address
+        item["property_street_address"] = response.xpath('//tr[./td[text()="Property Address"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
+        item["property_street_address"] = " ".join(
+            item["property_street_address"].split()
+        )  # https://stackoverflow.com/a/1546251
         item["property_county"] = self.county
+        item["property_city"] = response.xpath('//tr[./td[text()="Property City/State"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
+        item["property_zip5"] = response.xpath('//tr[./td[text()="Property Zip Code"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
         item["property_type"] = response.xpath(
-            '//tr[./td[contains(text(),"Property Class")]]/td[@class="DataletData"]/text()'
+            '//tr[./td[text()="Class"]]/td[@class="DataletData"]/text()'
         ).get()
 
-        residential_link = response.xpath(
-            '//a[./span[text()="Residential"]]/@href'
+        main_building_link = response.xpath(
+            '//a[./span[text()="Main Building(s)"]]/@href'
         ).get()
         yield response.follow(
-            residential_link,
+            main_building_link,
             meta={"item": item},
-            callback=self.parse_property_residential_page,
+            callback=self.parse_property_main_building_page,
             dont_filter=True,
         )
 
-    def parse_property_residential_page(self, response):
+    def parse_property_main_building_page(self, response):
         item = response.meta.get("item")
 
         parid = response.xpath('//input[@id="hdXPin"]/@value').get()
@@ -173,86 +186,16 @@ class WashingtonSpider(scrapy.Spider):
         ).get()
         item["building_area_sqft"] = (
             response.xpath(
-                '//tr[./td[text()="Living Area"]]/td[@class="DataletData"]/text()'
+                '//tr[./td[text()="Total Area"]]/td[@class="DataletData"]/text()'
             )
             .get("")
             .replace("\xa0", "")
             .replace(",", "")
         )
 
-        value_history_link = response.xpath(
-            '//a[./span[text()="Value History"]]/@href'
+        sales_link = response.xpath(
+            '//a[./span[text()="Assessment/Sales"]]/@href'
         ).get()
-        yield response.follow(
-            value_history_link,
-            meta={"item": item},
-            callback=self.parse_property_value_history_page,
-            dont_filter=True,
-        )
-
-    def parse_property_value_history_page(self, response):
-        item = response.meta.get("item")
-
-        appr_values_table = response.xpath('//table[@id="Appraised Values"]')
-        if appr_values_table is not None:
-            first_row = appr_values_table.xpath("./tr[2]")
-            if first_row is not None:
-                first_row_values = first_row.xpath("./td/text()").getall()
-                if len(first_row_values) >= 4:
-                    item["total_appraised_value"] = first_row_values[3].replace(",", "")
-                    item["land_appraised_value"] = first_row_values[1].replace(",", "")
-                    item["building_appraised_value"] = first_row_values[2].replace(
-                        ",", ""
-                    )
-
-        as_values_table = response.xpath('//div[@name="VALUE_HIST_ASMT"]/table')
-        if as_values_table is not None:
-            first_row = as_values_table.xpath("./tr[2]")
-            if first_row is not None:
-                first_row_values = first_row.xpath("./td/text()").getall()
-                if len(first_row_values) == 4:
-                    item["building_assessed_value"] = first_row_values[2].replace(
-                        ",", ""
-                    )
-                    item["building_assessed_date"] = first_row_values[0].replace(
-                        ",", ""
-                    )
-                    item["land_assessed_value"] = first_row_values[1].replace(",", "")
-                    item["total_assessed_value"] = first_row_values[-1].replace(",", "")
-
-        land_link = response.xpath('//a[./span[text()="Land"]]/@href').get()
-        yield response.follow(
-            land_link,
-            meta={"item": item},
-            callback=self.parse_property_land_page,
-            dont_filter=True,
-        )
-
-    def parse_property_land_page(self, response):
-        item = response.meta.get("item")
-
-        item["land_area_acres"] = (
-            response.xpath('//tr[./td[text()="Acres"]]/td[@class="DataletData"]/text()')
-            .get("")
-            .replace("\xa0", "")
-        )
-        if item["land_area_acres"].startswith("."):
-            item["land_area_acres"] = 0
-        elif item["land_area_acres"] != "":
-            item["land_area_acres"] = round(float(item["land_area_acres"]))
-        item["land_area_sqft"] = (
-            response.xpath(
-                '//tr[./td[text()="Square Feet"]]/td[@class="DataletData"]/text()'
-            )
-            .get("")
-            .replace("\xa0", "")
-            .replace(",", "")
-        )
-        item["land_type"] = response.xpath(
-            '//tr[./td[text()="Land Type"]]/td[@class="DataletData"]/text()'
-        ).get()
-
-        sales_link = response.xpath('//a[./span[text()="Sales"]]/@href').get()
         yield response.follow(
             sales_link,
             meta={"item": item},
@@ -260,23 +203,27 @@ class WashingtonSpider(scrapy.Spider):
             dont_filter=True,
         )
 
+
     def parse_property_sales_page(self, response):
         item = response.meta.get("item")
 
         sale_date_str = response.xpath(
-            '//tr[./td[text()="Sale Date"]]/td[@class="DataletData"]/text()'
+            '//tr[./td[text()="Date"]]/td[@class="DataletData"]/text()'
         ).get()
-        if sale_date_str is not None:
-            sale_date_str = parse_datetime(sale_date_str).isoformat().replace("T", " ")
+        if sale_date_str is None:
+            return
+
+        sale_date = parse_datetime(sale_date_str)
+        sale_date_str = sale_date.isoformat().replace("T", " ")
 
         item["sale_datetime"] = sale_date_str
         item["sale_price"] = (
             response.xpath(
-                '//tr[./td[text()="Sale Price"]]/td[@class="DataletData"]/text()'
+                '//tr[./td[text()="Price"]]/td[@class="DataletData"]/text()'
             )
             .get("")
             .replace("$", "")
-            .replace(",", "")
+            .replace(",", "").split(".")[0]
         )
         item["seller_1_name"] = (
             response.xpath(
@@ -292,27 +239,25 @@ class WashingtonSpider(scrapy.Spider):
             .get("")
             .replace("\xa0", "")
         )
-        item["seller_2_name"] = (
-            response.xpath(
-                '//tr[./td[text()="Grantor 2"]]/td[@class="DataletData"]/text()'
-            )
-            .get("")
-            .replace("\xa0", "")
-        )
-        item["buyer_2_name"] = (
-            response.xpath(
-                '//tr[./td[text()="Grantee 2"]]/td[@class="DataletData"]/text()'
-            )
-            .get("")
-            .replace("\xa0", "")
-        )
         item["book"] = response.xpath(
             '//tr[./td[text()="Deed Book"]]/td[@class="DataletData"]/text()'
-        ).get()
+        ).get("").replace("\xa0", "")
         item["page"] = response.xpath(
             '//tr[./td[text()="Deed Page"]]/td[@class="DataletData"]/text()'
-        ).get()
+        ).get("").replace("\xa0", "")
         item["source_url"] = self.start_urls[-1]
+
+        item['land_assessed_value'] = None
+        item['building_assessed_value'] = None
+        item['total_assessed_value'] = None
+
+        assessment_year = response.xpath('//tr[./td[text()="Assessment Year"]]/td[@class="DataletData"]/text()').get()
+        if assessment_year is not None:
+            assessment_year = int(assessment_year)
+            if assessment_year == sale_date.year:
+                item['land_assessed_value'] = response.xpath('//tr[./td[text()="Land Value"]]/td[@class="DataletData"]/text()').get("").replace(",", "")
+                item['building_assessed_value'] = response.xpath('//tr[./td[text()="Building Value"]]/td[@class="DataletData"]/text()').get("").replace(",", "")
+                item['total_assessed_value'] = response.xpath('//tr[./td[text()="Total Value"]]/td[@class="DataletData"]/text()').get("").replace(",", "")
 
         yield item
 
@@ -354,7 +299,7 @@ class WashingtonSpider(scrapy.Spider):
 
         action = response.xpath('//form[@name="frmMain"]/@action').get()
         form_url = urljoin(response.url, action).replace(
-            "mode=sales", "mode=dek_profile"
+            "mode=sales", "mode=profileall"
         )
 
         yield FormRequest(
