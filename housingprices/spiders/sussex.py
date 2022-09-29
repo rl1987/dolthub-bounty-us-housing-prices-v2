@@ -221,10 +221,9 @@ class SussexSpider(scrapy.Spider):
             if len(row) == 0:
                 continue
 
+            row = dict(zip(sales_header, row))
             if row.get("Sale Price") is None:
                 continue
-
-            row = dict(zip(sales_header, row))
 
             sale_date_str = row.get("Sale Date")
             sale_date_str = parse_datetime(sale_date_str).isoformat().replace("T", " ")
