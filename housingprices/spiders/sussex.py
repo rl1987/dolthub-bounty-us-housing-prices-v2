@@ -221,6 +221,9 @@ class SussexSpider(scrapy.Spider):
             if len(row) == 0:
                 continue
 
+            if row.get("Sale Price") is None:
+                continue
+
             row = dict(zip(sales_header, row))
 
             sale_date_str = row.get("Sale Date")
