@@ -136,3 +136,6 @@ dmypy.json
 *.lock.hcl
 *.tfstate
 *.backup
+
+*.csv
+*.json
