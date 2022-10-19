@@ -153,6 +153,7 @@ class SussexSpider(scrapy.Spider):
         )  # https://stackoverflow.com/a/1546251
 
         item = SalesItem()
+        item["source_url"] = self.start_urls[-1]
         item["state"] = self.state
         item["property_id"] = parid
         item["property_street_address"] = property_street_address
