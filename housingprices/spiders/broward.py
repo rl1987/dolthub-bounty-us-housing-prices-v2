@@ -138,7 +138,11 @@ class BrowardSpider(scrapy.Spider):
         item["property_id"] = json_dict.get("folioNumber")
         item["building_num_units"] = json_dict.get("units")
         item["building_year_built"] = json_dict.get("actualAge")
-        item["source_url"] = "https://web.bcpa.net/bcpaclient/#/Record-Search?fnumber=" + json_dict.get("folioNumber")
+        item[
+            "source_url"
+        ] = "https://web.bcpa.net/bcpaclient/#/Record-Search?fnumber=" + json_dict.get(
+            "folioNumber"
+        )
         item["building_num_beds"] = json_dict.get("beds")
         item["building_num_baths"] = json_dict.get("baths")
         item["building_area_sqft"] = json_dict.get("bldgSqFT")

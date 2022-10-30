@@ -16,7 +16,7 @@ class SussexSpider(scrapy.Spider):
     allowed_domains = ["property.sussexcountyde.gov"]
     start_urls = [
         "https://property.sussexcountyde.gov/PT/Search/Disclaimer.aspx?FromUrl=../search/advancedsearch.aspx?mode=advanced",
-        "https://property.sussexcountyde.gov/PT/search/advancedsearch.aspx?mode=advanced"
+        "https://property.sussexcountyde.gov/PT/search/advancedsearch.aspx?mode=advanced",
     ]
     start_year = 1939
     state = "DE"
@@ -161,8 +161,16 @@ class SussexSpider(scrapy.Spider):
         item["property_type"] = response.xpath(
             '//tr[./td[text()="Class:"]]/td[@class="DataletData"]/text()'
         ).get()
-        item["property_city"] = response.xpath('//tr[./td[text()="City:"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
-        item["property_zip5"] = response.xpath('//tr[./td[text()="Zip:"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
+        item["property_city"] = (
+            response.xpath('//tr[./td[text()="City:"]]/td[@class="DataletData"]/text()')
+            .get("")
+            .replace("\xa0", "")
+        )
+        item["property_zip5"] = (
+            response.xpath('//tr[./td[text()="Zip:"]]/td[@class="DataletData"]/text()')
+            .get("")
+            .replace("\xa0", "")
+        )
 
         residential_link = response.xpath(
             '//a[./span[text()="Residential"]]/@href'
@@ -192,18 +200,24 @@ class SussexSpider(scrapy.Spider):
         if item["building_num_baths"] is not None:
             item["building_num_baths"] = float(item["building_num_baths"])
 
-            half_baths = response.xpath('//tr[./td[text()="Half Baths"]]/td[@class="DataletData"]/text()').get()
+            half_baths = response.xpath(
+                '//tr[./td[text()="Half Baths"]]/td[@class="DataletData"]/text()'
+            ).get()
             if half_baths is not None:
                 half_baths = float(half_baths)
                 item["building_num_baths"] += half_baths / 2
-        item["building_num_stories"] = response.xpath(
-            '//tr[./td[text()="Stories"]]/td[@class="DataletData"]/text()'
-        ).get("").split(".")[0]
+        item["building_num_stories"] = (
+            response.xpath(
+                '//tr[./td[text()="Stories"]]/td[@class="DataletData"]/text()'
+            )
+            .get("")
+            .split(".")[0]
+        )
         item["building_area_sqft"] = response.xpath(
             '//tr[./td[text()="Area"]]/td[@class="DataletData"]/text()'
         ).get()
 
-        meta_dict = {"item": item }
+        meta_dict = {"item": item}
 
         sales_link = response.xpath('//a[./span[text()="Sales"]]/@href').get()
         yield response.follow(
@@ -220,12 +234,12 @@ class SussexSpider(scrapy.Spider):
 
         sales_table = response.xpath('//table[@id="Sales"]')
 
-        for row in sales_table.xpath('./tr'):
-            row = row.xpath('./td/text()').getall()
+        for row in sales_table.xpath("./tr"):
+            row = row.xpath("./td/text()").getall()
             if sales_header is None:
                 sales_header = row
                 continue
-            
+
             if len(row) == 0:
                 continue
 
@@ -235,9 +249,11 @@ class SussexSpider(scrapy.Spider):
 
             sale_date_str = row.get("Sale Date")
             sale_date_str = parse_datetime(sale_date_str).isoformat().replace("T", " ")
-            
+
             item["sale_datetime"] = sale_date_str
-            item["sale_price"] = row.get("Sale Price").replace("$", "").replace(",", "").split(".")[0]
+            item["sale_price"] = (
+                row.get("Sale Price").replace("$", "").replace(",", "").split(".")[0]
+            )
             book_page = row.get("Book/Page")
             item["book"] = book_page.split("/")[0]
             item["page"] = book_page.split("/")[-1]

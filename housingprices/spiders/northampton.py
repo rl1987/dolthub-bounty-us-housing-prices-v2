@@ -16,7 +16,7 @@ class NorthamptonSpider(scrapy.Spider):
     allowed_domains = ["www.ncpub.org"]
     start_urls = [
         "https://www.ncpub.org/_web/Search/Disclaimer.aspx?FromUrl=../search/advancedsearch.aspx?mode=advanced",
-        "https://www.ncpub.org/_web/search/advancedsearch.aspx?mode=advanced"
+        "https://www.ncpub.org/_web/search/advancedsearch.aspx?mode=advanced",
     ]
     start_year = 1901
     state = "PA"
@@ -160,14 +160,24 @@ class NorthamptonSpider(scrapy.Spider):
         item["property_id"] = parid
         item["property_street_address"] = property_street_address
         item["property_county"] = self.county
-        item["property_city"] = response.xpath(
-            '//tr[./td[text()="City"]]/td[@class="DataletData"]/text()'
-        ).get("").replace("\xa0", "")
-        item["property_zip5"] = response.xpath(
-            '//tr[./td[text()="Zip Code"]]/td[@class="DataletData"]/text()'
-        ).get("").replace("\xa0", "")
-        item["property_type"] = response.xpath('//tr[./td[text()="Classification"]]/td[@class="DataletData"]/text()').get()
-        item["building_num_units"] = response.xpath('//tr[./td[text()="Living Units"]]/td[@class="DataletData"]/text()').get()
+        item["property_city"] = (
+            response.xpath('//tr[./td[text()="City"]]/td[@class="DataletData"]/text()')
+            .get("")
+            .replace("\xa0", "")
+        )
+        item["property_zip5"] = (
+            response.xpath(
+                '//tr[./td[text()="Zip Code"]]/td[@class="DataletData"]/text()'
+            )
+            .get("")
+            .replace("\xa0", "")
+        )
+        item["property_type"] = response.xpath(
+            '//tr[./td[text()="Classification"]]/td[@class="DataletData"]/text()'
+        ).get()
+        item["building_num_units"] = response.xpath(
+            '//tr[./td[text()="Living Units"]]/td[@class="DataletData"]/text()'
+        ).get()
 
         residential_link = response.xpath(
             '//a[./span[text()="Residential"]]/@href'
@@ -195,7 +205,9 @@ class NorthamptonSpider(scrapy.Spider):
         if item["building_num_baths"] is not None:
             item["building_num_baths"] = float(item["building_num_baths"])
 
-            half_baths = response.xpath('//tr[./td[text()="Half Baths"]]/td[@class="DataletData"]/text()').get()
+            half_baths = response.xpath(
+                '//tr[./td[text()="Half Baths"]]/td[@class="DataletData"]/text()'
+            ).get()
             if half_baths is not None:
                 half_baths = float(half_baths)
                 item["building_num_baths"] += half_baths / 2
@@ -213,7 +225,7 @@ class NorthamptonSpider(scrapy.Spider):
         land_link = response.xpath('//a[./span[text()="Land"]]/@href').get()
         yield response.follow(
             land_link,
-            meta={'item': item},
+            meta={"item": item},
             callback=self.parse_property_land_page,
             dont_filter=True,
         )
@@ -289,19 +301,25 @@ class NorthamptonSpider(scrapy.Spider):
             .get("")
             .replace("\xa0", "")
         )
-        item["book"] = response.xpath(
-            '//tr[./td[text()="Deed Book"]]/td[@class="DataletData"]/text()'
-        ).get("").replace("\xa0", "")
-        item["page"] = response.xpath(
-            '//tr[./td[text()="Deed Page"]]/td[@class="DataletData"]/text()'
-        ).get("").replace("\xa0", "")
-        item[
-            "source_url"
-        ] = self.start_urls[-1]
+        item["book"] = (
+            response.xpath(
+                '//tr[./td[text()="Deed Book"]]/td[@class="DataletData"]/text()'
+            )
+            .get("")
+            .replace("\xa0", "")
+        )
+        item["page"] = (
+            response.xpath(
+                '//tr[./td[text()="Deed Page"]]/td[@class="DataletData"]/text()'
+            )
+            .get("")
+            .replace("\xa0", "")
+        )
+        item["source_url"] = self.start_urls[-1]
 
         yield item
 
-        meta_dict = {"item": item }
+        meta_dict = {"item": item}
 
         next_sale_link = response.xpath(
             '//a[./i[@class="icon-angle-right "]]/@href'

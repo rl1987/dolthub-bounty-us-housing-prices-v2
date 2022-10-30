@@ -148,13 +148,31 @@ class WashingtonSpider(scrapy.Spider):
         item = SalesItem()
         item["state"] = self.state
         item["property_id"] = parid
-        item["property_street_address"] = response.xpath('//tr[./td[text()="Property Address"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
+        item["property_street_address"] = (
+            response.xpath(
+                '//tr[./td[text()="Property Address"]]/td[@class="DataletData"]/text()'
+            )
+            .get("")
+            .replace("\xa0", "")
+        )
         item["property_street_address"] = " ".join(
             item["property_street_address"].split()
         )  # https://stackoverflow.com/a/1546251
         item["property_county"] = self.county
-        item["property_city"] = response.xpath('//tr[./td[text()="Property City/State"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
-        item["property_zip5"] = response.xpath('//tr[./td[text()="Property Zip Code"]]/td[@class="DataletData"]/text()').get("").replace("\xa0", "")
+        item["property_city"] = (
+            response.xpath(
+                '//tr[./td[text()="Property City/State"]]/td[@class="DataletData"]/text()'
+            )
+            .get("")
+            .replace("\xa0", "")
+        )
+        item["property_zip5"] = (
+            response.xpath(
+                '//tr[./td[text()="Property Zip Code"]]/td[@class="DataletData"]/text()'
+            )
+            .get("")
+            .replace("\xa0", "")
+        )
         item["property_type"] = response.xpath(
             '//tr[./td[text()="Class"]]/td[@class="DataletData"]/text()'
         ).get()
@@ -187,7 +205,9 @@ class WashingtonSpider(scrapy.Spider):
         if item["building_num_baths"] is not None:
             item["building_num_baths"] = float(item["building_num_baths"])
 
-            half_baths = response.xpath('//tr[./td[text()="Half Baths"]]/td[@class="DataletData"]/text()').get()
+            half_baths = response.xpath(
+                '//tr[./td[text()="Half Baths"]]/td[@class="DataletData"]/text()'
+            ).get()
             if half_baths is not None:
                 half_baths = float(half_baths)
                 item["building_num_baths"] += half_baths / 2
@@ -210,7 +230,6 @@ class WashingtonSpider(scrapy.Spider):
             dont_filter=True,
         )
 
-
     def parse_property_sales_page(self, response):
         item = response.meta.get("item")
 
@@ -225,12 +244,11 @@ class WashingtonSpider(scrapy.Spider):
 
         item["sale_datetime"] = sale_date_str
         item["sale_price"] = (
-            response.xpath(
-                '//tr[./td[text()="Price"]]/td[@class="DataletData"]/text()'
-            )
+            response.xpath('//tr[./td[text()="Price"]]/td[@class="DataletData"]/text()')
             .get("")
             .replace("$", "")
-            .replace(",", "").split(".")[0]
+            .replace(",", "")
+            .split(".")[0]
         )
         item["seller_1_name"] = (
             response.xpath(
@@ -246,25 +264,53 @@ class WashingtonSpider(scrapy.Spider):
             .get("")
             .replace("\xa0", "")
         )
-        item["book"] = response.xpath(
-            '//tr[./td[text()="Deed Book"]]/td[@class="DataletData"]/text()'
-        ).get("").replace("\xa0", "")
-        item["page"] = response.xpath(
-            '//tr[./td[text()="Deed Page"]]/td[@class="DataletData"]/text()'
-        ).get("").replace("\xa0", "")
+        item["book"] = (
+            response.xpath(
+                '//tr[./td[text()="Deed Book"]]/td[@class="DataletData"]/text()'
+            )
+            .get("")
+            .replace("\xa0", "")
+        )
+        item["page"] = (
+            response.xpath(
+                '//tr[./td[text()="Deed Page"]]/td[@class="DataletData"]/text()'
+            )
+            .get("")
+            .replace("\xa0", "")
+        )
         item["source_url"] = self.start_urls[-1]
 
-        item['land_assessed_value'] = None
-        item['building_assessed_value'] = None
-        item['total_assessed_value'] = None
+        item["land_assessed_value"] = None
+        item["building_assessed_value"] = None
+        item["total_assessed_value"] = None
 
-        assessment_year = response.xpath('//tr[./td[text()="Assessment Year"]]/td[@class="DataletData"]/text()').get()
+        assessment_year = response.xpath(
+            '//tr[./td[text()="Assessment Year"]]/td[@class="DataletData"]/text()'
+        ).get()
         if assessment_year is not None:
             assessment_year = int(assessment_year)
             if assessment_year == sale_date.year:
-                item['land_assessed_value'] = response.xpath('//tr[./td[text()="Land Value"]]/td[@class="DataletData"]/text()').get("").replace(",", "")
-                item['building_assessed_value'] = response.xpath('//tr[./td[text()="Building Value"]]/td[@class="DataletData"]/text()').get("").replace(",", "")
-                item['total_assessed_value'] = response.xpath('//tr[./td[text()="Total Value"]]/td[@class="DataletData"]/text()').get("").replace(",", "")
+                item["land_assessed_value"] = (
+                    response.xpath(
+                        '//tr[./td[text()="Land Value"]]/td[@class="DataletData"]/text()'
+                    )
+                    .get("")
+                    .replace(",", "")
+                )
+                item["building_assessed_value"] = (
+                    response.xpath(
+                        '//tr[./td[text()="Building Value"]]/td[@class="DataletData"]/text()'
+                    )
+                    .get("")
+                    .replace(",", "")
+                )
+                item["total_assessed_value"] = (
+                    response.xpath(
+                        '//tr[./td[text()="Total Value"]]/td[@class="DataletData"]/text()'
+                    )
+                    .get("")
+                    .replace(",", "")
+                )
 
         yield item
 

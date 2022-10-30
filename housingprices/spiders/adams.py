@@ -46,10 +46,9 @@ class AdamsSpider(scrapy.Spider):
         item["building_num_beds"] = response.xpath(
             '//tr[.//*[text()="Number of Bedrooms:"]]/td[last()]//text()'
         ).get()
-        item["building_num_baths"] = (
-            response.xpath('//tr[.//*[text()="Number of Baths:"]]/td[last()]//text()')
-            .get("")
-        )
+        item["building_num_baths"] = response.xpath(
+            '//tr[.//*[text()="Number of Baths:"]]/td[last()]//text()'
+        ).get("")
         item["building_area_sqft"] = response.xpath(
             '//tr[.//*[text()="Built As SQ Ft:"]]/td[last()]//text()'
         ).get()
