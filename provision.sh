@@ -16,10 +16,10 @@ bash /tmp/install.sh
 
 mkdir /root/data
 
-pushd /root/data
+pushd /root/data || exit
 dolt clone rl1987/us-housing-prices-v2
 dolt remote add upstream dolthub/us-housing-prices-v2
-popd /root/data
+popd /root/data || exit
 
 swapoff -a
 dd if=/dev/zero of=/swapfile bs=1G count=16
