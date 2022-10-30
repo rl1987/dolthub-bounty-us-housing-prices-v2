@@ -186,6 +186,13 @@ class ClaytonSpider(scrapy.Spider):
         item["building_num_baths"] = response.xpath(
             '//tr[./td[text()="Full Baths"]]/td[@class="DataletData"]/text()'
         ).get()
+        if item["building_num_baths"] is not None:
+            item["building_num_baths"] = float(item["building_num_baths"])
+
+            half_baths = response.xpath('//tr[./td[text()="Half Baths"]]/td[@class="DataletData"]/text()').get()
+            if half_baths is not None and half_baths.strip() != "":
+                half_baths = float(half_baths)
+                item["building_num_baths"] += half_baths / 2
 
         value_history_link = response.xpath(
             '//a[./span[text()="Value History"]]/@href'
